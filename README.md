@@ -27,12 +27,12 @@ Weirdhost &amp; 自动续期 &amp; 多账号版
 ```json
 [
   {
-    "remark": "123@gmail.com",
+    "remark": "备注账号一",
     "id": "8a8db3cc",
     "cookie_env": "WEIRDHOST_COOKIE_1"
   },
   {
-    "remark": "admin@123.nyc.mn",
+    "remark": "备注账号二",
     "id": "e13623",
     "cookie_env": "WEIRDHOST_COOKIE_2"
   }
