@@ -11,7 +11,7 @@ Weirdhost &amp; 自动续期 &amp; 多账号版
 
 | Secret 名称 | 示例值 | 说明 |
 |:--|:--|:--|
-| `WEIRDHOST_ACCOUNTS` | `ACCOUNTS 格式` | 账号配置 JSON |
+| `WEIRDHOST_ACCOUNTS` | `ACCOUNTS 格式` | 账号配置 JSON 注意:Cookie不要填到这里 |
 | `WEIRDHOST_COOKIE_1` | `remember_web_59ba36addc2b2f940` | 账号1 的 Cookie |
 | `WEIRDHOST_COOKIE_2` | `remember_web_59ba36addc2b2f940` | 账号2 的 Cookie |
 | `WEIRDHOST_COOKIE_3` | `remember_web_59ba36addc2b2f940` | 账号3 的 Cookie |
