@@ -67,17 +67,96 @@ def mask_url(url):
 
 
 def parse_accounts():
+    """解析 ACCOUNTS 环境变量"""
     accounts_str = os.environ.get("ACCOUNTS", "").strip()
+    
     if not accounts_str:
+        print("\n" + "=" * 60)
+        print("❌ 错误: WEIRDHOST_ACCOUNTS 环境变量未设置")
+        print("=" * 60)
+        print("\n请在 GitHub Secrets 中设置 WEIRDHOST_ACCOUNTS 变量")
+        print("\n格式示例:")
+        print('''
+[
+  {
+    "remark": "我的账号1",
+    "id": "abc12345-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "cookie_env": "WEIRDHOST_COOKIE_1"
+  },
+  {
+    "remark": "我的账号2",
+    "id": "def67890-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "cookie_env": "WEIRDHOST_COOKIE_2"
+  }
+]
+''')
+        print("字段说明:")
+        print("  - remark    : 账号备注名称 (用于识别)")
+        print("  - id        : 服务器ID (从URL https://hub.weirdhost.xyz/server/xxxxx 获取)")
+        print("  - cookie_env: Cookie对应的环境变量名 (需要同时在Secrets中设置)")
+        print("\n同时需要设置对应的 Cookie 变量:")
+        print("  - WEIRDHOST_COOKIE_1: remember_web_xxxxxx=xxxxxx")
+        print("  - WEIRDHOST_COOKIE_2: remember_web_xxxxxx=xxxxxx")
+        print("\n" + "=" * 60)
         return []
+    
     try:
         accounts = json.loads(accounts_str)
         if not isinstance(accounts, list):
-            print("[!] ACCOUNTS 格式错误：应为数组")
+            print("\n" + "=" * 60)
+            print("❌ 错误: ACCOUNTS 格式错误")
+            print("=" * 60)
+            print("\nACCOUNTS 应为 JSON 数组格式，当前解析结果不是数组")
+            print(f"当前类型: {type(accounts).__name__}")
+            print("\n正确格式示例: [{...}, {...}]")
+            print("=" * 60)
             return []
-        return accounts
+        
+        if len(accounts) == 0:
+            print("\n" + "=" * 60)
+            print("❌ 错误: ACCOUNTS 数组为空")
+            print("=" * 60)
+            print("\n请添加至少一个账号配置")
+            print("=" * 60)
+            return []
+        
+        # 验证每个账号的必要字段
+        valid_accounts = []
+        for i, acc in enumerate(accounts):
+            if not isinstance(acc, dict):
+                print(f"[!] 账号 {i+1} 格式错误: 应为对象")
+                continue
+            
+            missing = []
+            if not acc.get("id"):
+                missing.append("id")
+            if not acc.get("cookie_env"):
+                missing.append("cookie_env")
+            
+            if missing:
+                print(f"[!] 账号 {i+1} 缺少必要字段: {', '.join(missing)}")
+                continue
+            
+            valid_accounts.append(acc)
+        
+        if not valid_accounts:
+            print("[!] 没有有效的账号配置")
+            return []
+        
+        print(f"[+] 解析到 {len(valid_accounts)} 个有效账号配置")
+        return valid_accounts
+        
     except json.JSONDecodeError as e:
-        print(f"[!] ACCOUNTS JSON 解析失败: {e}")
+        print("\n" + "=" * 60)
+        print("❌ 错误: ACCOUNTS JSON 解析失败")
+        print("=" * 60)
+        print(f"\n错误信息: {e}")
+        print(f"\n原始内容前100字符: {accounts_str[:100]}...")
+        print("\n请检查 JSON 格式是否正确:")
+        print("  - 使用双引号而非单引号")
+        print("  - 确保括号匹配")
+        print("  - 检查逗号使用")
+        print("=" * 60)
         return []
 
 
@@ -159,6 +238,7 @@ async def tg_notify(message):
     token = os.environ.get("TG_BOT_TOKEN")
     chat_id = os.environ.get("TG_CHAT_ID")
     if not token or not chat_id:
+        print("[TG] 未配置 TG_BOT_TOKEN 或 TG_CHAT_ID，跳过通知")
         return
     async with aiohttp.ClientSession() as session:
         try:
@@ -670,6 +750,8 @@ def process_single_account(sb, account, account_index):
     cookie_str = os.environ.get(cookie_env, "").strip()
     if not cookie_str:
         print(f"[!] 账号 {display_name}: 环境变量 {cookie_env} 未设置")
+        print(f"    请在 GitHub Secrets 中添加 {cookie_env}")
+        print(f"    格式: remember_web_xxxxxx=xxxxxx")
         result["status"] = "error"
         result["message"] = f"{cookie_env} 未设置"
         return result
@@ -679,12 +761,14 @@ def process_single_account(sb, account, account_index):
 
     if not cookie_name or not cookie_value:
         print(f"[!] 账号 {display_name}: Cookie 格式错误")
+        print(f"    正确格式: remember_web_xxxxxx=xxxxxx")
         result["status"] = "error"
         result["message"] = "Cookie 格式错误"
         return result
 
     if not cookie_name.startswith("remember_web"):
         print(f"[!] 账号 {display_name}: Cookie 名称错误")
+        print(f"    Cookie 名称应以 'remember_web' 开头")
         result["status"] = "error"
         result["message"] = "Cookie 名称错误"
         return result
@@ -731,7 +815,7 @@ def process_single_account(sb, account, account_index):
             screenshot_path = f"{screenshot_prefix}_login_failed.png"
             sb.save_screenshot(screenshot_path)
             result["status"] = "error"
-            result["message"] = "Cookie 失效"
+            result["message"] = "Cookie 失效，请重新获取"
             result["screenshot"] = screenshot_path
             return result
 
@@ -761,7 +845,7 @@ def process_single_account(sb, account, account_index):
                 result["cookie_updated"] = True
             return result
 
-        remaining_display = f"{remaining_days:.2f}" if remaining_days else "?"
+        remaining_display = f"{remaining_days:.2f}" if remaining_days is not None else "?"
         print(f"[+] 剩余 {remaining_display} 天 <= {RENEW_THRESHOLD_DAYS} 天，执行续期")
 
         print("\n[步骤4] 点击侧栏续期按钮")
@@ -865,7 +949,7 @@ def send_summary_report(results):
         lines.append(f"\n{status_icon} <b>{remark}</b>")
 
         if server_id:
-            lines.append(f"   🖥️ 服务器: {server_id}")
+            lines.append(f"   🖥️ 服务器: {mask_server_id(server_id)}")
 
         if r["status"] == "success":
             lines.append(f"   📅 到期: {r['new_expiry']}")
@@ -923,7 +1007,15 @@ def add_server_time():
     accounts = parse_accounts()
 
     if not accounts:
-        sync_tg_notify("🎁 <b>Weirdhost 多账号续期</b>\n\n❌ ACCOUNTS 未设置或格式错误\n\n请设置 ACCOUNTS 环境变量，格式为 JSON 数组")
+        sync_tg_notify(
+            "🎁 <b>Weirdhost 多账号续期</b>\n\n"
+            "❌ <b>配置错误</b>\n\n"
+            "ACCOUNTS 环境变量未设置或格式错误\n\n"
+            "请在 GitHub Secrets 中设置 WEIRDHOST_ACCOUNTS 变量\n"
+            "格式为 JSON 数组，包含 remark, id, cookie_env 字段\n\n"
+            "详细说明请查看 Action 运行日志"
+        )
+        print("\n[!] 程序退出: 无有效账号配置")
         return
 
     print("=" * 60)
